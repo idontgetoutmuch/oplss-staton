@@ -20,11 +20,23 @@ model1 = do
   score $ poissonPdf rate 4
   return x
 
+geometric :: Meas Int
+geometric = do
+  x <- sample
+  if x < 0.5
+    then return 1
+    else do y <- geometric
+            return $ 1 + y
+
+testGeometric = do
+  samples <- mh geometric
+  return $ map fst $ take 10000 samples
+
 test1 = do
   xws <- weightedsamples model1
   let xws' = map (\(x,w) -> (x, w)) xws
-  _ <- renderableToFile def "bus-histogram-1.svg"
-    (chart (toHistogram (take 100000 xws')))
+  _ <- renderableToFile def "bus-histogram-1a.svg"
+    (chart (toHistogram (take 100000 xws)))
   return ()
 
 model2 = do

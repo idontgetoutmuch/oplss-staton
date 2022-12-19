@@ -1,14 +1,22 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
-module MHMonad where
+{-# OPTIONS_GHC -Wall              #-}
+{-# OPTIONS_GHC -Wno-type-defaults #-}
+
+module MHMonad (
+  weightedsamples,
+  Meas,
+  sample,
+  categ,
+  score,
+  mh,
+  ) where
 
 import Control.Monad.Trans.Writer
 import Control.Monad.State
 import Data.Monoid
 import System.Random
-import Debug.Trace
-import System.IO.Unsafe
 import Control.Monad.Extra
 
 -- As programs run they write scores (likelihoods: Product Double)
@@ -34,6 +42,7 @@ sample = Meas $
 categ :: [Double] -> Double -> Integer
 categ rs r = let helper (r':rs') r'' i =
                           if r'' < r' then i else helper rs' (r''-r') (i+1)
+                 helper _ _ _ = error "categ"
            in helper rs r 0
 
 -- Output a stream of weighted samples from a program.
@@ -48,7 +57,7 @@ weightedsamples (Meas m) =
                        g <- getStdGen
                        let rs = randoms g
                        let (xws,_) = runState helper rs
-                       return $ map (\(x,(w,i)) -> (x,getProduct w)) xws
+                       return $ map (\(x, (w, _)) -> (x, getProduct w)) xws
 
 getrandom :: State [Double] Double
 getrandom = do
@@ -89,6 +98,6 @@ mh (Meas m) =
      g <- getStdGen
      let (g1,g2) = split g
      let (samples,_) = runState (iterateM step (randoms g1)) (randoms g2)
-     return $ map (\(x,(w,l)) -> (x,w))
+     return $ map (\(x, (w, _)) -> (x, w))
        $ map (\as -> fst $ runState (runWriterT m) as)
        $ samples
