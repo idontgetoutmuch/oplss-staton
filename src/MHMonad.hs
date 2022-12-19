@@ -80,10 +80,11 @@ mh (Meas m) =
            -- rerun the model with the original and changed sites
            let ((_, (w',l')),_) =
                  runState (runWriterT m) (as') 
-           -- reverse the list of used numbers, ready to be reused
-           let ratio = getProduct w' * (fromIntegral $ getSum l')
-                       / (getProduct w * (fromIntegral $ getSum l))
+           -- calculate the acceptance ratio
+           let ratio = getProduct w' * (fromIntegral $ getSum l)
+                       / (getProduct w * (fromIntegral $ getSum l'))
            r'' <- getrandom
+           -- probability of accepting this trace
            if r'' < (min 1 ratio) then return as' else return as
      g <- getStdGen
      let (g1,g2) = split g

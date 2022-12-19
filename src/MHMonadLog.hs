@@ -78,8 +78,8 @@ mh (Meas m) =
            let ((_, (w',l')),_) =
                  runState (runWriterT m) (as') 
            -- calculate the acceptance ratio
-           let ratio = getProduct w' * (fromIntegral $ getSum l')
-                       / (getProduct w * (fromIntegral $ getSum l))
+           let ratio = getProduct w' * (fromIntegral $ getSum l)
+                       / (getProduct w * (fromIntegral $ getSum l'))
            r'' <- getrandom
            -- probability of accepting this trace
            if r'' < (min 1 ((exp . ln) ratio)) then return as' else return as
