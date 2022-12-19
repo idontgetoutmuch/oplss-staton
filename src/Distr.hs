@@ -12,7 +12,7 @@ import Data.List
 categorical :: [Double] -> Meas Integer
 categorical rs = do r <- sample
                     return $ categ rs r
-                    
+
 
 normal :: Double -> Double -> Meas Double
 normal m s = do x <- sample
@@ -32,12 +32,12 @@ expPdf rate x = exp (-rate*x) * rate
 gamma :: Double -> Double -> Meas Double
 gamma a b = do
   x <- sample
-  return $ quantile (gammaDistr a b) x 
+  return $ quantile (gammaDistr a b) x
 
 beta :: Double -> Double -> Meas Double
 beta a b = do
   x <- sample
-  return $ quantile (betaDistr a b) x 
+  return $ quantile (betaDistr a b) x
 
 poisson :: Double -> Meas Integer
 poisson lambda = do

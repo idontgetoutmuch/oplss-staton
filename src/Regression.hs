@@ -30,7 +30,7 @@ fit prior dataset = do f <- prior
                                score $ normalPdf (f x) 0.3 y)
                             dataset
                        return f
-                       
+
 dataset :: [(Double, Double)]
 dataset = [(0,0.6), (1, 0.7), (2,1.2), (3,3.2), (4,6.8), (5, 8.2), (6,8.4)]
 
@@ -54,7 +54,7 @@ plotWeightedPoints filename dataset xmin xmax ymin ymax =
      renderableToFile def filename graphic;
      putStrLn (" Done!")
      return ()
-    
+
 plotWeightedLines :: String -> [(Double,Double,Double)] -> IO ()
 plotWeightedLines filename points =
   let plots = map (\(x,y,w) -> toPlot $ plot_lines_style . line_color .~ (blend w blue red) `withOpacity` (w)
@@ -62,7 +62,7 @@ plotWeightedLines filename points =
                       $ def) points in
   let my_dots = plot_points_style .~ filledCircles 4 (opaque black)
               $ plot_points_values .~ dataset
-              $ def in               
+              $ def in
   let my_layout = layout_plots .~  (toPlot my_dots : plots)
                 $ layout_x_axis .
                   laxis_generate .~ scaledAxis def (-10,10)
@@ -121,14 +121,14 @@ interesting_points f lower upper epsilon delta acc =
   if abs(upper - lower) < delta then acc
   else
     let mid = (upper - lower) / 2 + lower in
-    if abs((f(upper) - f(lower)) / 2 + f(lower) - f(mid)) < epsilon 
+    if abs((f(upper) - f(lower)) / 2 + f(lower) - f(mid)) < epsilon
     then acc
     else interesting_points f lower mid epsilon delta (mid : (interesting_points f mid upper epsilon delta acc))
- 
-sample_fun f = 
+
+sample_fun f =
 --  [ (x, f x) | x <- [(-0.25),(-0.25+0.1)..6.2]]
   let xs = ((-0.25) : (interesting_points f (-0.25) 6.2 0.3 0.001 [6.2])) in
-  map (\x -> (x,f x)) xs 
+  map (\x -> (x,f x)) xs
 
 plot_funs :: String -> [(Double,Double)] -> [Double -> Double] -> IO ()
 plot_funs filename dataset funs =
@@ -137,7 +137,7 @@ plot_funs filename dataset funs =
                 $ plot_lines_values .~ graphs $ def in
   let my_dots = plot_points_style .~ filledCircles 4 (opaque black)
               $ plot_points_values .~ dataset
-              $ def in               
+              $ def in
   let my_layout = layout_plots .~ [toPlot my_lines , toPlot my_dots]
                 $ layout_x_axis .
                   laxis_generate .~ scaledAxis def (0,6)

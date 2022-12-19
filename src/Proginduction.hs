@@ -2,7 +2,7 @@ module Proginduction where
 
 import MHMonad
 import Distr
-import Data.Monoid 
+import Data.Monoid
 import Statistics.Distribution
 import Statistics.Distribution.Normal (normalDistr)
 import Graphics.Rendering.Chart
@@ -67,7 +67,7 @@ totalweight :: [(Integer,Double)] -> Double
 totalweight rxs = sum $ map (\(_,r) -> r) rxs
 
 toHistogram :: [(Integer,Double)] -> Integer -> Integer -> [Double]
-toHistogram rxs from to = if from > to then [] else 
+toHistogram rxs from to = if from > to then [] else
   ((sum $ map (\(x,r) -> if x == from then r else 0) rxs) / (totalweight rxs)) : (toHistogram rxs (from + 1) to)
 
 chart :: [Double] -> Renderable ()
@@ -91,8 +91,8 @@ chart rs = toRenderable layout
 
   alabels = map show [0 .. ((length rs)-1)]
 
-  btitle = "" 
-  bstyle = Just (solidLine 1.0 $ opaque black) 
+  btitle = ""
+  bstyle = Just (solidLine 1.0 $ opaque black)
   mkstyle c = (solidFillStyle c, bstyle)
 
 -- plot a histogram of lengths when the weighted pcfg grammar is used
@@ -109,7 +109,7 @@ test1 =
     _ <- renderableToFile def "histogram.svg" (chart (toHistogram (take 100000 rxs) 0 40))
     return ()
 
-sample_fun f = 
+sample_fun f =
   [ (x, f x) | x <- [(-0.25),(-0.25+0.1)..6.2]]
 
 plot_funs :: String -> [(Double,Double)] -> [Double -> Double] -> IO ()
@@ -119,7 +119,7 @@ plot_funs filename dataset funs =
                 $ plot_lines_values .~ graphs $ def in
   let my_dots = plot_points_style .~ filledCircles 4 (opaque black)
               $ plot_points_values .~ dataset
-              $ def in               
+              $ def in
   let my_layout = layout_plots .~ [toPlot my_lines , toPlot my_dots]
                 $ layout_x_axis .
                   laxis_generate .~ scaledAxis def (0,6)
@@ -139,7 +139,7 @@ dataset = [(0,0.6), (1, 0.7), (2,1.2), (3,3.2), (4,6.8), (5, 8.2), (6,8.4)]
 fit prior dataset = do f <- prior
                        mapM (\(x,y) -> score $ (density $ normalDistr (f x) 0.3) y) dataset
                        return f
-     
+
 every n xs = case drop (n-1) xs of
               (y:ys) -> y : every n ys
               [] -> []

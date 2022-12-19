@@ -8,14 +8,14 @@ import Data.Colour
 import Data.Colour.Names
 import Data.Default.Class
 import Control.Lens
-import Data.Monoid 
+import Data.Monoid
 
 -- Is it the weekend?
 model1 = do
   -- Prior belief: it is the weekend with prob. 2/7
   x <- bernoulli (2/7)
   -- More buses on weekdays
-  let rate = if x then 3 else 10 
+  let rate = if x then 3 else 10
   -- observe 4 buses in an hour
   score $ poissonPdf rate 4
   return x
@@ -26,7 +26,7 @@ test1 = do
   _ <- renderableToFile def "bus-histogram-1.svg"
     (chart (toHistogram (take 100000 xws')))
   return ()
-  
+
 model2 = do
   x <- bernoulli (2/7)
   let rate = if x then 3 else 10
@@ -40,7 +40,7 @@ test2 = do
   _ <- renderableToFile def "bus-histogram-2.svg"
     (chart (toHistogram (take 100000 xws')))
   return ()
-  
+
 model3 = do
   x <- bernoulli (2/7)
   let approxrate = if x then 3 else 10
@@ -55,7 +55,7 @@ test3 = do
   _ <- renderableToFile def "bus-histogram-3.svg"
     (chart (toHistogram (take 100000 xws')))
   return ()
-  
+
 
 
 -- functions for plotting a histogram
@@ -63,7 +63,7 @@ totalweight :: [(a,Double)] -> Double
 totalweight rxs = sum $ map (\(_,r) -> r) rxs
 
 toHistogram :: [(Bool,Double)] -> [Double]
-toHistogram rxs = 
+toHistogram rxs =
   map (\x' -> (sum $ map (\(x,r) -> if x == x' then r else 0) rxs) / (totalweight rxs)) [True,False]
 
 chart :: [Double] -> Renderable ()
@@ -88,7 +88,6 @@ chart rs = toRenderable layout
 
   alabels = ["weekend","weekday"]
 
-  btitle = "" 
-  bstyle = Just (solidLine 1.0 $ opaque black) 
+  btitle = ""
+  bstyle = Just (solidLine 1.0 $ opaque black)
   mkstyle c = (solidFillStyle c, bstyle)
-

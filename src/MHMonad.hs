@@ -6,18 +6,18 @@ module MHMonad where
 import Control.Monad.Trans.Writer
 import Control.Monad.State
 import Data.Monoid
-import System.Random 
+import System.Random
 import Debug.Trace
 import System.IO.Unsafe
 import Control.Monad.Extra
-  
+
 -- As programs run they write scores (likelihoods: Product Double)
 -- and we keep track of the length of each run (Sum Int).
 -- We also use randomness, in the form of a list of seeds [Double].
 newtype Meas a = Meas (WriterT (Product Double,Sum Int) (State [Double]) a)
   deriving(Functor, Applicative, Monad)
 
--- Score weights the result, typically by the likelihood of an observation. 
+-- Score weights the result, typically by the likelihood of an observation.
 score :: Double -> Meas ()
 score r = Meas $ tell $ (Product r,Sum 0)
 
@@ -36,7 +36,7 @@ categ rs r = let helper (r':rs') r'' i =
                           if r'' < r' then i else helper rs' (r''-r') (i+1)
            in helper rs r 0
 
--- Output a stream of weighted samples from a program. 
+-- Output a stream of weighted samples from a program.
 weightedsamples :: forall a. Meas a -> IO [(a,Double)]
 weightedsamples (Meas m) =
                     do let helper :: State [Double]
@@ -48,7 +48,7 @@ weightedsamples (Meas m) =
                        g <- getStdGen
                        let rs = randoms g
                        let (xws,_) = runState helper rs
-                       return $ map (\(x,(w,i)) -> (x,getProduct w)) xws 
+                       return $ map (\(x,(w,i)) -> (x,getProduct w)) xws
 
 getrandom :: State [Double] Double
 getrandom = do
@@ -67,11 +67,11 @@ mh (Meas m) =
          -- plus any extra randomness needed when rerunning the model
          step as = do
            let ((_, (w,l)),_) =
-                 runState (runWriterT m) as 
+                 runState (runWriterT m) as
            -- randomly pick which site to change
            r <- getrandom
            let i = categ (replicate (fromIntegral $ getSum l)
-                          (1/(fromIntegral $ getSum l))) r 
+                          (1/(fromIntegral $ getSum l))) r
            -- replace that site with a new random choice
            r' <- getrandom
            let as' =
@@ -79,7 +79,7 @@ mh (Meas m) =
                     as1 ++ r' : as2)
            -- rerun the model with the original and changed sites
            let ((_, (w',l')),_) =
-                 runState (runWriterT m) (as') 
+                 runState (runWriterT m) (as')
            -- calculate the acceptance ratio
            let ratio = getProduct w' * (fromIntegral $ getSum l)
                        / (getProduct w * (fromIntegral $ getSum l'))
@@ -89,7 +89,6 @@ mh (Meas m) =
      g <- getStdGen
      let (g1,g2) = split g
      let (samples,_) = runState (iterateM step (randoms g1)) (randoms g2)
-     return $ map (\(x,(w,l)) -> (x,w)) 
+     return $ map (\(x,(w,l)) -> (x,w))
        $ map (\as -> fst $ runState (runWriterT m) as)
        $ samples
-     

@@ -6,20 +6,20 @@ module MHMonadLog where
 import Control.Monad.Trans.Writer
 import Control.Monad.State
 import Data.Monoid
-import System.Random 
+import System.Random
 import Debug.Trace
 import System.IO.Unsafe
 import Control.Monad.Extra
 import Numeric.Log
-  
+
 -- As programs run, they write scores (likelihoods) and we keep track of
 -- the length of each run.
 -- They also use randomness.
--- We consider this as a state with a stream of random numbers. 
+-- We consider this as a state with a stream of random numbers.
 newtype Meas a = Meas (WriterT (Product (Log Double),Sum Int) (State [Double]) a)
   deriving(Functor, Applicative, Monad)
 
--- Score weights the result, typically by the likelihood of an observation. 
+-- Score weights the result, typically by the likelihood of an observation.
 score :: Double -> Meas ()
 score r = Meas $ tell $ (Product $ (Exp . log)
                           $ (if r==0 then exp(-300) else r),Sum 0)
@@ -42,7 +42,7 @@ categ rs r = let helper (r':rs') r'' i =
                           if r'' < r' then i else helper rs' (r''-r') (i+1)
            in helper rs r 0
 
--- Output a stream of weighted samples from a program. 
+-- Output a stream of weighted samples from a program.
 weightedsamples :: Meas a -> IO [(a,Product (Log Double))]
 weightedsamples (Meas m) =
                     do let helper = do
@@ -52,7 +52,7 @@ weightedsamples (Meas m) =
                        g <- getStdGen
                        let rs = randoms g
                        let (xws,_) = runState helper rs
-                       return $ map (\(x,(w,i)) -> (x,w)) xws 
+                       return $ map (\(x,(w,i)) -> (x,w)) xws
 
 -- Produce a stream of samples, together with their weights,
 -- using single site Metropolis Hastings.
@@ -61,14 +61,14 @@ mh (Meas m) =
   do let step :: [Double] -> State [Double] [Double]
          -- Do one step of single-site Metropolis Hastings.
          -- The step involves randomness, which again we implement
-         -- using the state monad. 
+         -- using the state monad.
          step as = do
            let ((_, (w,l)),_) =
-                 runState (runWriterT m) as 
+                 runState (runWriterT m) as
            -- randomly pick which site to change
            r <- getrandom
            let i = categ (replicate (fromIntegral $ getSum l)
-                          (1/(fromIntegral $ getSum l))) r 
+                          (1/(fromIntegral $ getSum l))) r
            -- replace that site with a new random choice
            r' <- getrandom
            let as' =
@@ -76,7 +76,7 @@ mh (Meas m) =
                     as1 ++ r' : as2)
            -- rerun the model with the original and changed sites
            let ((_, (w',l')),_) =
-                 runState (runWriterT m) (as') 
+                 runState (runWriterT m) (as')
            -- calculate the acceptance ratio
            let ratio = getProduct w' * (fromIntegral $ getSum l)
                        / (getProduct w * (fromIntegral $ getSum l'))
@@ -86,7 +86,6 @@ mh (Meas m) =
      g <- getStdGen
      let (g1,g2) = split g
      let (samples,_) = runState (iterateM step (randoms g1)) (randoms g2)
-     return $ map (\(x,(w,l)) -> (x,w)) 
+     return $ map (\(x,(w,l)) -> (x,w))
        $ map (\as -> fst $ runState (runWriterT m) as)
        $ samples
-     

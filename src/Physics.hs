@@ -26,7 +26,7 @@ initialize bumpers = do
   set global ( Camera (V2 0 1) 60
              , earthGravity )
 
-  -- The bumpers 
+  -- The bumpers
   mapM (\(x,y,theta) -> do
           lineBody <- newEntity (StaticBody, Angle (theta), Position (V2 x y))
           newEntity (Shape lineBody (hLine 2), Elasticity 0.8)
@@ -34,11 +34,11 @@ initialize bumpers = do
 
   -- The cup
   lineBody <- newEntity (StaticBody, Position (V2 5 (-3.9)))
-  newEntity (Shape lineBody (hLine 1), Elasticity 0.9)  
+  newEntity (Shape lineBody (hLine 1), Elasticity 0.9)
   lineBody <- newEntity (StaticBody, Position (V2 4.5 (-3.5)))
-  newEntity (Shape lineBody (vLine 1), Elasticity 0.9)  
+  newEntity (Shape lineBody (vLine 1), Elasticity 0.9)
   lineBody <- newEntity (StaticBody, Position (V2 5.5 (-3.5)))
-  newEntity (Shape lineBody (vLine 1), Elasticity 0.9)  
+  newEntity (Shape lineBody (vLine 1), Elasticity 0.9)
 
   -- The ball
   ball <- newEntity (DynamicBody, Position (V2 (-5) 5))
@@ -55,7 +55,7 @@ sim
   -> System w ()
 sim disp = do
   w <- ask
-  liftIO $ 
+  liftIO $
      do
        t <- newIORef 0
        simulateIO disp
@@ -89,7 +89,7 @@ try bumpers =
                        (Position (V2 x y)) <- get b
                        return (x,y)
                    ) [1..1000]
-       return $ takeWhile (\(_,y)->y>(-4.1)) pos 
+       return $ takeWhile (\(_,y)->y>(-4.1)) pos
 
 
 -- The model: Pick some bumper positions and angles uniformly
