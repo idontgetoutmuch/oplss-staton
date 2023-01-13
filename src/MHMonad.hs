@@ -22,34 +22,34 @@ import Control.Monad.Extra
 -- As programs run they write scores (likelihoods: Product Double)
 -- and we keep track of the length of each run (Sum Int).
 -- We also use randomness, in the form of a list of seeds [Double].
-newtype Meas a = Meas (WriterT (Product Double,Sum Int) (State [Double]) a)
+newtype Meas b a = Meas (WriterT (Product b, Sum Int) (State [b]) a)
   deriving(Functor, Applicative, Monad)
 
 -- Score weights the result, typically by the likelihood of an observation.
-score :: Double -> Meas ()
-score r = Meas $ tell $ (Product r,Sum 0)
+score :: a -> Meas a ()
+score r = Meas $ tell $ (Product r, Sum 0)
 
 -- Sample draws a new sample. We first use the given deterministic bits,
 -- and then move to the stream of randoms when that is used up.
 -- We keep track of the numbers used in any given run.
-sample :: Meas Double
+sample :: Num a => Meas a a
 sample = Meas $
        do ~(r:rs) <- get
           put rs
-          tell $ (Product 1,Sum 1)
+          tell $ (Product 1, Sum 1)
           return r
 
-categ :: [Double] -> Double -> Integer
+categ :: (Ord a, Num a) => [a] -> a -> Integer
 categ rs r = let helper (r':rs') r'' i =
                           if r'' < r' then i else helper rs' (r''-r') (i+1)
                  helper _ _ _ = error "categ"
            in helper rs r 0
 
 -- Output a stream of weighted samples from a program.
-weightedsamples :: forall a. Meas a -> IO [(a,Double)]
+weightedsamples :: forall a b . (Random b) => Meas b a -> IO [(a, b)]
 weightedsamples (Meas m) =
-                    do let helper :: State [Double]
-                                     [(a,(Product Double,Sum Int))]
+                    do let helper :: State [b]
+                                     [(a,(Product b, Sum Int))]
                            helper = do
                              (x, w) <- runWriterT m
                              rest <- helper
@@ -59,7 +59,7 @@ weightedsamples (Meas m) =
                        let (xws,_) = runState helper rs
                        return $ map (\(x, (w, _)) -> (x, getProduct w)) xws
 
-getrandom :: State [Double] Double
+getrandom :: State [b] b
 getrandom = do
   ~(r:rs) <- get
   put rs
@@ -67,11 +67,11 @@ getrandom = do
 
 -- Produce a stream of samples, together with their weights,
 -- using single site Metropolis Hastings.
-mh :: forall a. Meas a -> IO [(a,Product Double)]
+mh :: forall a b . (Num b, Random b, Ord b, Fractional b) => Meas b a -> IO [(a, Product b)]
 mh (Meas m) =
   do -- helper takes a random source and the previous result
      -- and produces a stream of result/weight pairs
-     let step :: [Double] -> State [Double] [Double]
+     let step :: [b] -> State [b] [b]
          -- each step will use three bits of randomness,
          -- plus any extra randomness needed when rerunning the model
          step as = do
@@ -95,6 +95,7 @@ mh (Meas m) =
            r'' <- getrandom
            -- probability of accepting this trace
            if r'' < (min 1 ratio) then return as' else return as
+     setStdGen (mkStdGen 42)
      g <- getStdGen
      let (g1,g2) = split g
      let (samples,_) = runState (iterateM step (randoms g1)) (randoms g2)

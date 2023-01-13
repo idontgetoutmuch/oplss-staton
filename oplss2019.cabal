@@ -45,7 +45,8 @@ library
   hs-source-dirs:
       src
   build-depends:
-      Chart
+      ad
+    , Chart
     , Chart-diagrams
     -- , apecs
     -- , apecs-gloss
@@ -56,6 +57,7 @@ library
     , colour
     , data-default-class
     -- , debug
+    , filepath
     , gamma
     -- , gloss
     , lazyio
