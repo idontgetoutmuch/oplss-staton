@@ -31,6 +31,7 @@ library
       src
   build-depends:
       ad
+    , backprop
     , Chart
     , Chart-diagrams
     , base >=4.7 && <5

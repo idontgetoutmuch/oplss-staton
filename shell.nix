@@ -4,6 +4,12 @@ myHaskellPackageOverlay = self: super: {
   myHaskellPackages = super.haskellPackages.override {
     overrides = hself: hsuper: rec {
 
+      backprop = super.haskell.lib.dontCheck (
+        hself.callCabal2nix "backprop" (builtins.fetchGit {
+          url = "file:////Users/dom/oplss-staton/backprop";
+          rev = "96ba7d37a6f583a3e018b8dab50691bdfa482dc8";
+        }) { });
+
     };
   };
 };
@@ -29,6 +35,7 @@ let
 
   haskellDeps = ps: with ps; [
     ad
+    backprop
     base
     cassava
     hasql

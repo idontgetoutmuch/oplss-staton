@@ -1,5 +1,6 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
-{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE ScopedTypeVariables        #-}
+{-# LANGUAGE FlexibleContexts           #-}
 
 {-# OPTIONS_GHC -Wall              #-}
 {-# OPTIONS_GHC -Wno-type-defaults #-}
@@ -18,6 +19,7 @@ import Control.Monad.State
 import Data.Monoid
 import System.Random
 import Control.Monad.Extra
+import Numeric.Backprop
 
 -- As programs run they write scores (likelihoods: Product Double)
 -- and we keep track of the length of each run (Sum Int).
@@ -102,3 +104,30 @@ mh (Meas m) =
      return $ map (\(x, (w, _)) -> (x, w))
        $ map (\as -> fst $ runState (runWriterT m) as)
        $ samples
+
+-- foo :: Reifies s W => Meas (BVar s b) a -> [BVar s b] -> BVar s b
+foo (Meas m) as = getProduct $ fst $ snd $ fst $ runState (runWriterT m) as
+
+singleObs :: Floating a => Meas a a
+singleObs = do
+    mu <- fst <$> normal
+    score $ normalPdf mu 1.0 4.0
+    return mu
+
+normal :: Floating a => Meas a (a, a)
+normal = do
+   u1 <- sample
+   u2 <- sample
+   return ( sqrt ((-2) * log u1) * (cos (2 * pi * u2))
+          , sqrt ((-2) * log u1) * (sin (2 * pi * u2)))
+
+normal' :: Floating a => a -> a -> Meas a a
+normal' mu sigma  = do
+  x <- fst <$> normal
+  return $ sigma * x + mu
+
+normalPdf :: Floating a => a -> a -> a -> a
+normalPdf mu sigma x =
+  (recip (sqrt (2 * pi * sigma2))) * exp ((-(x - mu)^2) / (2 * sigma2))
+  where
+    sigma2 = sigma * sigma
