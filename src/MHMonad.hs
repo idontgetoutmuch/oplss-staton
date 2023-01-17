@@ -1,6 +1,7 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE ScopedTypeVariables        #-}
 {-# LANGUAGE FlexibleContexts           #-}
+{-# LANGUAGE ViewPatterns               #-}
 
 {-# OPTIONS_GHC -Wall              #-}
 {-# OPTIONS_GHC -Wno-type-defaults #-}
@@ -12,6 +13,8 @@ module MHMonad (
   categ,
   score,
   mh,
+  testEval,
+  testGrad,
   ) where
 
 import Control.Monad.Trans.Writer
@@ -67,6 +70,8 @@ getrandom = do
   put rs
   return r
 
+leapFrogSteps = 25
+
 -- Produce a stream of samples, together with their weights,
 -- using single site Metropolis Hastings.
 mh :: forall a b . (Num b, Random b, Ord b, Fractional b) => Meas b a -> IO [(a, Product b)]
@@ -105,13 +110,26 @@ mh (Meas m) =
        $ map (\as -> fst $ runState (runWriterT m) as)
        $ samples
 
--- foo :: Reifies s W => Meas (BVar s b) a -> [BVar s b] -> BVar s b
+foo :: Reifies s W => Meas (BVar s b) a -> [BVar s b] -> BVar s b
 foo (Meas m) as = getProduct $ fst $ snd $ fst $ runState (runWriterT m) as
+
+bar :: Double
+bar = evalBP (foo singleObs . sequenceVar) [0.5]
+
+testEval :: Bool
+testEval = bar == normalPdf 0.0 1.0 (0.0 :: Double)
+
+baz :: [Double]
+baz = gradBP (foo singleObs . sequenceVar) [0.5]
+
+testGrad :: Bool
+testGrad = baz == [0.0 :: Double]
 
 singleObs :: Floating a => Meas a a
 singleObs = do
-    mu <- fst <$> normal
-    score $ normalPdf mu 1.0 4.0
+    mu <- normal' 0.0 1.0
+    -- trace (show mu) $ return ()
+    score $ normalPdf 0.0 1.0 0.0
     return mu
 
 normal :: Floating a => Meas a (a, a)

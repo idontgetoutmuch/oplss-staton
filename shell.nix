@@ -10,6 +10,11 @@ myHaskellPackageOverlay = self: super: {
           rev = "96ba7d37a6f583a3e018b8dab50691bdfa482dc8";
         }) { });
 
+      # backprop = hself.callCabal2nix "backprop" (builtins.fetchGit {
+      #     url = "https://github.com/idontgetoutmuch/backprop";
+      #     rev = "96ba7d37a6f583a3e018b8dab50691bdfa482dc8";
+      #   }) { };
+
     };
   };
 };
