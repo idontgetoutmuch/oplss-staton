@@ -80,6 +80,11 @@ let
     lazyio lens log-domain monad-extras
     mtl random statistics transformers vector
     uniplate
+
+    storable-complex
+    hmatrix
+    one-liner-instances
+    mnist-idx
   ];
 
 in

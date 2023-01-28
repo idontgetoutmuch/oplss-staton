@@ -1,7 +1,8 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE ScopedTypeVariables        #-}
 {-# LANGUAGE FlexibleContexts           #-}
-{-# LANGUAGE ViewPatterns               #-}
+{-# LANGUAGE TypeFamilies               #-}
+{-# LANGUAGE RankNTypes                 #-}
 
 {-# OPTIONS_GHC -Wall              #-}
 {-# OPTIONS_GHC -Wno-type-defaults #-}
@@ -23,12 +24,27 @@ import Data.Monoid
 import System.Random
 import Control.Monad.Extra
 import Numeric.Backprop
+import Numeric.AD.Newton
+import Numeric.AD.Internal.Forward
+import Numeric.AD.Internal.Type
+
 
 -- As programs run they write scores (likelihoods: Product Double)
 -- and we keep track of the length of each run (Sum Int).
 -- We also use randomness, in the form of a list of seeds [Double].
 newtype Meas b a = Meas (WriterT (Product b, Sum Int) (State [b]) a)
   deriving(Functor, Applicative, Monad)
+
+myFmap :: (b -> c) -> Meas b a -> Meas c a
+myFmap f (Meas m) = undefined
+
+newtype Meat c b a = Meat (WriterT (Product b, Sum Int) (State [c]) a)
+  deriving(Functor, Applicative, Monad)
+
+foof :: ((c, (Product e, Sum Int)) -> (d, (Product f, Sum Int))) ->
+        Meat b e c -> -- WriterT (Product e, Sum Int) (State [b]) c ->
+        Meat b f d -- WriterT (Product f, Sum Int) (State [b]) d
+foof f (Meat m) = Meat $ mapWriterT (fmap f) m
 
 -- Score weights the result, typically by the likelihood of an observation.
 score :: a -> Meas a ()
@@ -70,8 +86,6 @@ getrandom = do
   put rs
   return r
 
-leapFrogSteps = 25
-
 -- Produce a stream of samples, together with their weights,
 -- using single site Metropolis Hastings.
 mh :: forall a b . (Num b, Random b, Ord b, Fractional b) => Meas b a -> IO [(a, Product b)]
@@ -109,6 +123,126 @@ mh (Meas m) =
      return $ map (\(x, (w, _)) -> (x, w))
        $ map (\as -> fst $ runState (runWriterT m) as)
        $ samples
+
+leapFrogSteps :: Int
+leapFrogSteps = 25
+
+-- def integrator_step(
+--     run_prog: Callable[[torch.Tensor], ProbRun[T]],
+--     t: float,
+--     eps: float,
+--     state: State,
+--     state_0: State,
+-- ) -> ProbRun[T]:
+--     """Performs one integrator step (called "leapfrog step" in standard HMC)."""
+--     result = run_prog(state.q)
+--     # first half of leapfrog step for continuous variables:
+--     state.p = state.p - eps / 2 * result.gradU() * state.is_cont
+--     state.q = state.q + eps / 2 * state.p * state.is_cont
+--     result = run_prog(state.q)
+--     # Integrate the discontinuous coordinates in a random order:
+--     disc_indices = torch.flatten(torch.nonzero(~state.is_cont, as_tuple=False))
+--     perm = torch.randperm(len(disc_indices))
+--     disc_indices_permuted = disc_indices[perm]
+--     for j in disc_indices_permuted:
+--         if j >= len(state.q):
+--             continue  # out-of-bounds can happen if q changes length during the loop
+--         result = coord_integrator(
+--             run_prog, int(j.item()), t, eps, state, state_0, result
+--         )
+--     # second half of leapfrog step for continuous variables
+--     state.q = state.q + eps / 2 * state.p * state.is_cont
+--     result = run_prog(state.q)
+--     state.p = state.p - eps / 2 * result.gradU() * state.is_cont
+--     return result
+
+data PhaseState a = PhaseState { phaseState :: [(a, a, Bool)] }
+  deriving (Eq, Show)
+
+-- integratorStep :: Meas b a -> [b] -> Double -> Double -> PhaseState b -> PhaseState b -> IO c
+-- integratorStep :: Meas a1 a2 -> [a1] -> p1 -> p2 -> p3 -> p4 -> a
+-- integratorStep m as t eps phaseState phastState0 = undefined
+--   where
+--     l :: _
+--     l = evalBP (foo m . sequenceVar) undefined
+--     k = foo m as
+
+-- Produce a stream of samples, together with their weights,
+-- using single site Metropolis Hastings.
+hmc :: forall a b . (Num b, Random b, Ord b, Fractional b) => Meas b a -> IO [(a, Product b)]
+hmc (Meas m) =
+  do -- helper takes a random source and the previous result
+     -- and produces a stream of result/weight pairs
+     let step :: [b] -> State [b] [b]
+         -- each step will use three bits of randomness,
+         -- plus any extra randomness needed when rerunning the model
+         step as = do
+           let ((_, (w,l)),_) =
+                 runState (runWriterT m) as
+           -- randomly pick which site to change
+           r <- getrandom
+           let i = categ (replicate (fromIntegral $ getSum l)
+                          (1/(fromIntegral $ getSum l))) r
+           -- replace that site with a new random choice
+           r' <- getrandom
+           let as' =
+                 (let (as1,_:as2) = splitAt (fromIntegral i) as in
+                    as1 ++ r' : as2)
+           -- rerun the model with the original and changed sites
+           let ((_, (w',l')),_) =
+                 runState (runWriterT m) (as')
+           -- calculate the acceptance ratio
+           let ratio = getProduct w' * (fromIntegral $ getSum l)
+                       / (getProduct w * (fromIntegral $ getSum l'))
+           r'' <- getrandom
+           -- probability of accepting this trace
+           if r'' < (min 1 ratio) then return as' else return as
+     setStdGen (mkStdGen 42)
+     g <- getStdGen
+     let (g1,g2) = split g
+     let (samples,_) = runState (iterateM step (randoms g1)) (randoms g2)
+     return $ map (\(x, (w, _)) -> (x, w))
+       $ map (\as -> fst $ runState (runWriterT m) as)
+       $ samples
+
+foo1 :: Backprop b => Meas b a -> (forall s . Reifies s W => BVar s [b] -> BVar s b)
+foo1 (Meas m) = (getProduct . fst . snd . fst . runState (runWriterT ((let Meas n = myFmap auto (Meas m) in n)))) . sequenceVar
+
+-- | Performs one integrator step (called "leapfrog step" in standard HMC).
+--
+-- integratorStep :: (Reifies s W, Backprop b) => d ~ BVar s b => Meas b a -> [b] -> Double -> Double -> PhaseState b -> PhaseState b -> IO c
+-- integratorStep :: forall s b a p p1 p2 p3 a1 . (Reifies s W, Backprop b) =>
+--                   Meas (BVar s b) a -> [BVar s b] -> p -> p1 -> p2 -> p3 -> a1
+integratorStep m as t eps phaseState phastState0 = undefined
+  where
+    -- result = run_prog(state.q)
+    -- k :: BVar s b
+    -- k = foo m as
+    -- l :: forall s . BVar s [b] -> BVar s b
+    -- l = foo m . sequenceVar
+    -- j :: [b] -> [b]
+    j = gradBP (foo1 m)
+    -- first half of leapfrog step for continuous variables:
+    -- state.p = state.p - eps / 2 * result.gradU() * state.is_cont
+    -- state.p = state.p - eps / 2 * result.gradU() * state.is_cont
+
+--     state.q = state.q + eps / 2 * state.p * state.is_cont
+--     result = run_prog(state.q)
+--     # Integrate the discontinuous coordinates in a random order:
+--     disc_indices = torch.flatten(torch.nonzero(~state.is_cont, as_tuple=False))
+--     perm = torch.randperm(len(disc_indices))
+--     disc_indices_permuted = disc_indices[perm]
+--     for j in disc_indices_permuted:
+--         if j >= len(state.q):
+--             continue  # out-of-bounds can happen if q changes length during the loop
+--         result = coord_integrator(
+--             run_prog, int(j.item()), t, eps, state, state_0, result
+--         )
+--     # second half of leapfrog step for continuous variables
+--     state.q = state.q + eps / 2 * state.p * state.is_cont
+--     result = run_prog(state.q)
+--     state.p = state.p - eps / 2 * result.gradU() * state.is_cont
+--     return result
 
 foo :: Reifies s W => Meas (BVar s b) a -> [BVar s b] -> BVar s b
 foo (Meas m) as = getProduct $ fst $ snd $ fst $ runState (runWriterT m) as
