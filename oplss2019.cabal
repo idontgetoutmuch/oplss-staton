@@ -55,36 +55,17 @@ library
     , vector
   default-language: Haskell2010
 
-executable example
-  main-is:            backprop-mnist.lhs
-  hs-source-dirs:     backprop/src backprop/samples
-  other-modules:      Data.Type.Util
-                      Numeric.Backprop
-                      Numeric.Backprop.Class
-                      Numeric.Backprop.Explicit
-                      Numeric.Backprop.Internal
-                      Numeric.Backprop.Op
+executable forGeorgiAndNick
+  main-is:            ForGeorgiAndNick.hs
+  hs-source-dirs:     src
+  other-modules:
   default-language:   Haskell2010
   build-depends:
       base
+    , backprop
     , containers
-    , criterion
-    , deepseq
-    , directory
-    , filepath
-    , hmatrix
     , log-domain
     , math-functions
-    , microlens
-    , microlens-th
-    , mnist-idx
     , mwc-random
     , mtl
-    , one-liner-instances
-    , primitive
-    , reflection
-    , split
-    , time
     , transformers
-    , vector
-    , vinyl
