@@ -41,9 +41,12 @@ library
     , data-default-class
     , filepath
     , gamma
+    , hmatrix
     , lazyio
     , lens
     , log-domain
+    , microlens
+    , microlens-th
     , monad-extras
     , mtl
     , random

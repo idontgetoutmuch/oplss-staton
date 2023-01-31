@@ -38,6 +38,16 @@ newtype Meas b a = Meas (WriterT (Product b, Sum Int) (State [b]) a)
 myFmap :: (b -> c) -> Meas b a -> Meas c a
 myFmap f (Meas m) = undefined
 
+moof :: ((c, (Product e, Sum Int)) -> (d, (Product f, Sum Int))) ->
+        WriterT (Product e, Sum Int) (State [b]) c ->
+        WriterT (Product f, Sum Int) (State [b]) d
+moof f m = mapWriterT (fmap f) m
+
+moog :: (e -> f) ->
+        WriterT (Product e, Sum Int) (State [b]) c ->
+        WriterT (Product f, Sum Int) (State [b]) c
+moog f = moof (\(x, (y, z)) -> (x, (fmap f y, z)))
+
 newtype Meat c b a = Meat (WriterT (Product b, Sum Int) (State [c]) a)
   deriving(Functor, Applicative, Monad)
 
@@ -45,6 +55,12 @@ foof :: ((c, (Product e, Sum Int)) -> (d, (Product f, Sum Int))) ->
         Meat b e c -> -- WriterT (Product e, Sum Int) (State [b]) c ->
         Meat b f d -- WriterT (Product f, Sum Int) (State [b]) d
 foof f (Meat m) = Meat $ mapWriterT (fmap f) m
+
+foog :: (e -> f) ->
+        Meat b e c ->
+        Meat b f c
+foog f = foof (\(x, (y, z)) -> (x, (fmap f y, z)))
+
 
 -- Score weights the result, typically by the likelihood of an observation.
 score :: a -> Meas a ()
@@ -55,6 +71,13 @@ score r = Meas $ tell $ (Product r, Sum 0)
 -- We keep track of the numbers used in any given run.
 sample :: Num a => Meas a a
 sample = Meas $
+       do ~(r:rs) <- get
+          put rs
+          tell $ (Product 1, Sum 1)
+          return r
+
+sampleC :: (Num a, Num b) => Meat a b a
+sampleC = Meat $
        do ~(r:rs) <- get
           put rs
           tell $ (Product 1, Sum 1)
@@ -208,12 +231,26 @@ hmc (Meas m) =
 foo1 :: Backprop b => Meas b a -> (forall s . Reifies s W => BVar s [b] -> BVar s b)
 foo1 (Meas m) = (getProduct . fst . snd . fst . runState (runWriterT ((let Meas n = myFmap auto (Meas m) in n)))) . sequenceVar
 
+foo3 :: (Backprop a1, Reifies s1 W) =>
+        WriterT (Product e, Sum Int) (State [BVar s1 a1]) a2 ->
+        BVar s1 [a1] ->
+        BVar s2 e
+foo3 m = (getProduct . fst . snd . fst . runState (runWriterT (moog auto m))) . sequenceVar
+
+-- foo2 :: Backprop b => Meat c b a -> (forall s . Reifies s W => BVar s [b] -> BVar s b)
+foo2 (Meat m) = (getProduct . fst . snd . fst . runState (runWriterT ((let Meat n = foog auto (Meat m) in n)))) . sequenceVar
+
+foo4 :: Reifies s W => Backprop b => Meas (BVar s b) a -> (forall s . Reifies s W => BVar s [b] -> BVar s b)
+foo4 (Meas m) = undefined -- (getProduct . fst . snd . fst . runState (runWriterT m)) . sequenceVar
+
+
 -- | Performs one integrator step (called "leapfrog step" in standard HMC).
 --
 -- integratorStep :: (Reifies s W, Backprop b) => d ~ BVar s b => Meas b a -> [b] -> Double -> Double -> PhaseState b -> PhaseState b -> IO c
 -- integratorStep :: forall s b a p p1 p2 p3 a1 . (Reifies s W, Backprop b) =>
 --                   Meas (BVar s b) a -> [BVar s b] -> p -> p1 -> p2 -> p3 -> a1
-integratorStep m as t eps phaseState phastState0 = undefined
+integratorStep :: Reifies s W => Backprop b => Meas (BVar s b) a -> Int
+integratorStep m {- as t eps phaseState phastState0 -} = undefined
   where
     -- result = run_prog(state.q)
     -- k :: BVar s b
@@ -221,7 +258,9 @@ integratorStep m as t eps phaseState phastState0 = undefined
     -- l :: forall s . BVar s [b] -> BVar s b
     -- l = foo m . sequenceVar
     -- j :: [b] -> [b]
-    j = gradBP (foo1 m)
+    -- j = gradBP (foo1 m)
+    -- k = gradBP (foo2 m)
+    l = gradBP (foo4 m)
     -- first half of leapfrog step for continuous variables:
     -- state.p = state.p - eps / 2 * result.gradU() * state.is_cont
     -- state.p = state.p - eps / 2 * result.gradU() * state.is_cont
