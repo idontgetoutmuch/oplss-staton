@@ -61,7 +61,8 @@ executable forGeorgiAndNick
   other-modules:
   default-language:   Haskell2010
   build-depends:
-      base
+      ad
+    , base
     , backprop
     , containers
     , log-domain

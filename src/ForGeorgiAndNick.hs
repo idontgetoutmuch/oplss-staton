@@ -16,6 +16,12 @@ import           Control.Monad.Trans.Writer
 import           Control.Monad.State
 import           Data.Monoid
 
+import Numeric.AD.Internal.Forward.Double (
+  ForwardDouble,
+  bundle,
+  primal,
+  tangent)
+
 -- Here's the original type. We want to be able to not just get hold
 -- of `Product b` but we want to get its derivative with respect to `State [b]`.
 newtype Meas b a = Meas (WriterT (Product b, Sum Int) (State [b]) a)
@@ -104,12 +110,27 @@ testEval3 :: (Backprop a, Backprop b) => Meas3 s b a -> [b] -> ((a, (Product b, 
 testEval3 x = undefined
               -- evalBP (unwrap (runState (runWriterT (runMeas3 x))))
 
--- normal :: Floating a => Meas4 a (a, a)
--- normal = do
---    u1 <- sample
---    u2 <- sample
---    return ( sqrt ((-2) * log u1) * (cos (2 * pi * u2))
---           , sqrt ((-2) * log u1) * (sin (2 * pi * u2)))
+-- Well apparently I can
+testEval3' :: (Backprop a, Backprop b) => (forall s . Reifies s W => Meas3 s b a) -> [b] -> ((a, (Product b, Sum Int)), [b])
+testEval3' x = evalBP (unwrap (runState (runWriterT (runMeas3 x))))
+
+-- Am I still stuck?
+sample3 :: (Num a, Backprop a, Reifies s W) => Meas3 s a (BVar s a)
+sample3 = Meas3 $
+       do ~(r:rs) <- sequenceVar <$> get
+          put (collectVar rs)
+          tell $ (Product 1, Sum 1)
+          return r
+
+-- Well so far I can't do this
+-- evaluateSample3 = testEval3' sample3
+
+normal :: (Floating a, Backprop a, Reifies s W) => Meas3 s a (BVar s a, BVar s a)
+normal = do
+   u1 <- sample3
+   u2 <- sample3
+   return ( sqrt ((-2) * log u1) * (cos (2 * pi * u2))
+          , sqrt ((-2) * log u1) * (sin (2 * pi * u2)))
 
 -- normal' :: Floating a => a -> a -> Meas4 a a
 -- normal' mu sigma  = do
@@ -121,3 +142,8 @@ normalPdf mu sigma x =
   (recip (sqrt (2 * pi * sigma2))) * exp ((-(x - mu)^2) / (2 * sigma2))
   where
     sigma2 = sigma * sigma
+
+diff :: Monad m => (ForwardDouble -> m ForwardDouble) -> Double -> m Double
+diff f x = do
+  df <- f (bundle x 1)
+  return (tangent df)
