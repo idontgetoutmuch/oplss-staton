@@ -16,6 +16,8 @@ import           Control.Monad.Trans.Writer
 import           Control.Monad.State
 import           Data.Monoid
 
+import Debug.Trace
+
 import Numeric.AD.Internal.Forward.Double (
   ForwardDouble,
   bundle,
@@ -26,6 +28,47 @@ import Numeric.AD.Internal.Forward.Double (
 -- of `Product b` but we want to get its derivative with respect to `State [b]`.
 newtype Meas b a = Meas (WriterT (Product b, Sum Int) (State [b]) a)
   deriving(Functor, Applicative, Monad)
+
+newtype Meas0 a = Meas0 (WriterT (Product ForwardDouble, Sum Int) (State [ForwardDouble]) a)
+  deriving(Functor, Applicative, Monad)
+
+runMeas0 :: Meas0 a -> WriterT (Product ForwardDouble, Sum Int) (State [ForwardDouble]) a
+runMeas0 (Meas0 m) = m
+
+testEval0 :: Meas0 a -> [ForwardDouble] -> ((a, (Product ForwardDouble, Sum Int)), [ForwardDouble])
+testEval0 x = runState (runWriterT (runMeas0 x))
+
+sample0 :: Meas0 ForwardDouble
+sample0 = Meas0 $
+       do ~(r:rs) <- get
+          put rs
+          tell $ (Product 1, Sum 1)
+          return r
+
+normal0 :: Meas0 (ForwardDouble, ForwardDouble)
+normal0 = do
+   u1 <- sample0
+   -- trace ("u1: " ++ show u1) $ return ()
+   u2 <- sample0
+   -- trace ("u2: " ++ show u2) $ return ()
+   let foo = ( sqrt ((-2) * log u1) * (cos (2 * pi * u2))
+             , sqrt ((-2) * log u1) * (sin (2 * pi * u2)))
+   -- trace ("From normal " ++ show foo) $ return ()
+   return foo
+
+normal0' :: ForwardDouble -> ForwardDouble -> Meas0 ForwardDouble
+normal0' mu sigma  = do
+  x <- fst <$> normal0
+  return $ sigma * x + mu
+
+score :: ForwardDouble -> Meas0 ()
+score r = Meas0 $ tell $ (Product r, Sum 0)
+
+singleObs :: Meas0 ForwardDouble
+singleObs = do
+    mu <- normal0' 0.0 1.0
+    score $ normalPdf 0.0 1.0 (bundle 2.0 1.0)
+    return mu
 
 -- Unwrapping the above defintion and replacing `State [b]` with `BVar s [b]` we have
 type Meas1  b a = forall s . Reifies s W => BVar s [b] -> ((a, (Product (BVar s b), Sum Int)), BVar s [b])
@@ -140,6 +183,11 @@ normal = do
 normalPdf :: Floating a => a -> a -> a -> a
 normalPdf mu sigma x =
   (recip (sqrt (2 * pi * sigma2))) * exp ((-(x - mu)^2) / (2 * sigma2))
+  where
+    sigma2 = sigma * sigma
+
+normalPdf' :: Floating a => a -> a -> a -> a
+normalPdf' mu sigma x = negate $ (x - mu) / sigma2 * normalPdf mu sigma x
   where
     sigma2 = sigma * sigma
 
