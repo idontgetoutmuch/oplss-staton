@@ -407,18 +407,19 @@ def run_inference(
     samples["hmc"]["burnin"] = burnin
     samples["hmc"]["eps"] = eps
     samples["hmc"]["leapfrog_steps"] = leapfrog_steps
-    print("Running importance sampling...")
-    samples["is"] = run(
-        lambda: importance_resample(run_prog, count=adjusted_count),
-    )
-    weighted, values = samples["is"]["samples"]
-    samples["is"]["samples"] = values
-    samples["is"]["weighted"] = weighted
+    # print(samples)
+    # print("Running importance sampling...")
+    # samples["is"] = run(
+    #     lambda: importance_resample(run_prog, count=adjusted_count),
+    # )
+    # weighted, values = samples["is"]["samples"]
+    # samples["is"]["samples"] = values
+    # samples["is"]["weighted"] = weighted
 
-    filename = f"{name}__count{count}_eps{eps}_leapfrogsteps{leapfrog_steps}"
-    samples["filename"] = filename
-    with open(f"samples_produced/{filename}.pickle", "wb") as f:
-        pickle.dump(samples, f)
+    # filename = f"{name}__count{count}_eps{eps}_leapfrogsteps{leapfrog_steps}"
+    # samples["filename"] = filename
+    # with open(f"samples_produced/{filename}.pickle", "wb") as f:
+    #     pickle.dump(samples, f)
     return samples
 
 

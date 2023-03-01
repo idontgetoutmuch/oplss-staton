@@ -18,7 +18,8 @@ palette = {
     "Pyro NUTS": "C9",
 }
 
-anglican_methods = ["lmh", "pgibbs", "rmh", "ipmcmc"]  # replace with [] to disable
+# anglican_methods = ["lmh", "pgibbs", "rmh", "ipmcmc"]  # replace with [] to disable
+anglican_methods = []
 all_methods = ["hmc", "is"] + anglican_methods
 compared_methods = ["hmc", "lmh", "pgibbs", "rmh"] if anglican_methods else ["hmc"]
 
