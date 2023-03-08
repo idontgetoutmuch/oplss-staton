@@ -1,5 +1,6 @@
 import sys
 from torch.distributions import Normal, Uniform
+import torch as torch
 
 from infer import run_inference, run_inference_icml2022
 from ppl import ProbCtx, run_prob_prog, ProbRun, T
@@ -9,7 +10,7 @@ import numpy as np
 mu0 = 0.0
 sigma0 = 1.0
 sigma = 1.0
-z = 0.0
+z = 4.0
 
 def analytic_example(ctx: ProbCtx) -> float:
     """An analytic example"""
